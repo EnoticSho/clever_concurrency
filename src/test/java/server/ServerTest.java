@@ -19,16 +19,14 @@ public class ServerTest {
 
     @Test
     public void testRequestProcessing() {
+        // Given & When
         IntStream.rangeClosed(1, 10)
                 .parallel()
                 .forEach(i -> {
-                    try {
-                        server.processRequest(new Request(i));
-                    } catch (InterruptedException e) {
-                        throw new RuntimeException(e);
-                    }
+                    server.processRequest(new Request(i));
                 });
 
+        // Then
         assertTrue(server.validateData(10));
     }
 }

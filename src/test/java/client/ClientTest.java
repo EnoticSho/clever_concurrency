@@ -1,28 +1,36 @@
 package client;
 
+import message.Response;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import server.Server;
 
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 
 public class ClientTest {
 
     private Client client;
-    private Server server;
+    private Server mockServer;
 
     @BeforeEach
-    public void setUp() {
-        server = new Server();
+    public void setUp() throws InterruptedException {
+        mockServer = Mockito.mock(Server.class);
+        Mockito.when(mockServer.processRequest(any()))
+                .thenReturn(new Response(1));
         client = new Client(10);
     }
 
     @Test
     public void testRequestSending() {
-        client.processRequests(server);
+        // Given & When
+        client.processRequests(mockServer);
 
-        assertTrue(client.listIsEmpty(), "Data list should be empty after processing");
-        assertEquals(55, client.getAccumulator(), "Accumulator should match expected sum");
+        // Then
+        assertAll(() -> assertEquals(10, client.getAccumulator()),
+                () -> assertTrue(client.listIsEmpty()));
     }
 }

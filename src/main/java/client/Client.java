@@ -1,5 +1,6 @@
 package client;
 
+import lombok.extern.slf4j.Slf4j;
 import message.Request;
 import message.Response;
 import server.Server;
@@ -16,30 +17,38 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
 
+@Slf4j
 public class Client {
     private final List<Integer> dataList;
     private final ExecutorService executorService;
-    private final AtomicInteger accumulator;
+    private Integer accumulator;
 
     public Client(int n) {
         dataList = Collections.synchronizedList(new ArrayList<>());
         IntStream.rangeClosed(1, n)
                 .forEach(dataList::add);
         this.executorService = Executors.newCachedThreadPool();
-        this.accumulator = new AtomicInteger(0);
+        this.accumulator = 0;
     }
 
     public void processRequests(Server server) {
+        List<Future<Integer>> futures = new ArrayList<>();
         try {
             while (!listIsEmpty()) {
                 Future<Integer> future = sendRequest(server);
-                Integer integer = future.get();
-                if (integer != null) {
-                    accumulator.addAndGet(integer);
-                }
+                futures.add(future);
             }
-        } catch (ExecutionException | InterruptedException e) {
-            throw new RuntimeException(e);
+
+            futures.forEach(future -> {
+                try {
+                    Integer integer = future.get();
+                    if (integer != null) {
+                        accumulator += integer;
+                    }
+                } catch (ExecutionException | InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            });
         } finally {
             shutdown();
         }
@@ -50,8 +59,10 @@ public class Client {
         int value = dataList.remove(index);
 
         return executorService.submit(() -> {
+            log.debug("Thread started for processing value: {}", value);
             Thread.sleep(ThreadLocalRandom.current().nextInt(100, 501));
             Response response = server.processRequest(new Request(value));
+            log.debug("Thread completed processing for value: {}", value);
             return response.getSize();
         });
     }
@@ -68,7 +79,7 @@ public class Client {
     }
 
     public Integer getAccumulator() {
-        return accumulator.get();
+        return accumulator;
     }
 
     public boolean listIsEmpty() {
