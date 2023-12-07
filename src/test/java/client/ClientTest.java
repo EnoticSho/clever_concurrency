@@ -19,14 +19,16 @@ public class ClientTest {
     @BeforeEach
     public void setUp() throws InterruptedException {
         mockServer = Mockito.mock(Server.class);
-        Mockito.when(mockServer.processRequest(any()))
-                .thenReturn(new Response(1));
         client = new Client(10);
     }
 
     @Test
     public void testRequestSending() {
-        // Given & When
+        // Given
+        Mockito.when(mockServer.processRequest(any()))
+                .thenReturn(new Response(1));
+
+        // When
         client.processRequests(mockServer);
 
         // Then
