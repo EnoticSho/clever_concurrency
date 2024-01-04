@@ -2,6 +2,7 @@ import client.Client;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import server.Server;
+import utils.ServerDataValidator;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -27,7 +28,7 @@ class ClientServerIntegrationTest {
         client.processRequests(server);
 
         //Then
-        assertAll(() -> assertEquals(expectedAccumulator, client.getAccumulator()),
-                () -> assertTrue(server.validateData(10)));
+        assertAll(() -> assertEquals(expectedAccumulator, client.getAccumulator().get()),
+                () -> assertTrue(ServerDataValidator.validateData(server.getServerData(), 10)));
     }
 }

@@ -3,6 +3,7 @@ package server;
 import message.Request;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import utils.ServerDataValidator;
 
 import java.util.stream.IntStream;
 
@@ -22,11 +23,9 @@ public class ServerTest {
         // Given & When
         IntStream.rangeClosed(1, 10)
                 .parallel()
-                .forEach(i -> {
-                    server.processRequest(new Request(i));
-                });
+                .forEach(i -> server.processRequest(new Request(i)));
 
         // Then
-        assertTrue(server.validateData(10));
+        assertTrue(ServerDataValidator.validateData(server.getServerData(), 10));
     }
 }

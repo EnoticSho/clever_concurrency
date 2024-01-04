@@ -17,7 +17,7 @@ public class ClientTest {
     private Server mockServer;
 
     @BeforeEach
-    public void setUp() throws InterruptedException {
+    public void setUp() {
         mockServer = Mockito.mock(Server.class);
         client = new Client(10);
     }
@@ -32,7 +32,7 @@ public class ClientTest {
         client.processRequests(mockServer);
 
         // Then
-        assertAll(() -> assertEquals(10, client.getAccumulator()),
+        assertAll(() -> assertEquals(10, client.getAccumulator().get()),
                 () -> assertTrue(client.listIsEmpty()));
     }
 }

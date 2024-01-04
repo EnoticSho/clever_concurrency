@@ -1,17 +1,17 @@
 package client;
 
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import message.Request;
 import message.Response;
 import server.Server;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -21,50 +21,52 @@ import java.util.stream.IntStream;
 public class Client {
     private final List<Integer> dataList;
     private final ExecutorService executorService;
-    private Integer accumulator;
+
+    @Getter
+    private final AtomicInteger accumulator;
 
     public Client(int n) {
-        dataList = Collections.synchronizedList(new ArrayList<>());
+        dataList = new CopyOnWriteArrayList<>();
         IntStream.rangeClosed(1, n)
                 .forEach(dataList::add);
-        this.executorService = Executors.newCachedThreadPool();
-        this.accumulator = 0;
+        this.executorService = Executors.newFixedThreadPool(10);
+        this.accumulator = new AtomicInteger();
     }
 
     public void processRequests(Server server) {
-        List<Future<Integer>> futures = new ArrayList<>();
+        List<CompletableFuture<Void>> futures = new ArrayList<>();
         try {
             while (!listIsEmpty()) {
-                Future<Integer> future = sendRequest(server);
+                CompletableFuture<Void> future = sendRequest(server)
+                        .thenAccept(accumulator::getAndAdd)
+                        .exceptionally(e -> {
+                            log.error("Error processing request", e);
+                            return null;
+                        });
                 futures.add(future);
             }
-
-            futures.forEach(future -> {
-                try {
-                    Integer integer = future.get();
-                    if (integer != null) {
-                        accumulator += integer;
-                    }
-                } catch (ExecutionException | InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                }
-            });
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
         } finally {
             shutdown();
         }
     }
 
-    private Future<Integer> sendRequest(Server server) {
+    private CompletableFuture<Integer> sendRequest(Server server) {
         int index = ThreadLocalRandom.current().nextInt(dataList.size());
         int value = dataList.remove(index);
 
-        return executorService.submit(() -> {
+        return CompletableFuture.supplyAsync(() -> {
             log.debug("Thread started for processing value: {}", value);
-            Thread.sleep(ThreadLocalRandom.current().nextInt(100, 501));
+            try {
+                Thread.sleep(ThreadLocalRandom.current().nextInt(100, 501));
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException(e);
+            }
             Response response = server.processRequest(new Request(value));
             log.debug("Thread completed processing for value: {}", value);
-            return response.getSize();
-        });
+            return response.size();
+        }, executorService);
     }
 
     private void shutdown() {
@@ -76,10 +78,6 @@ public class Client {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
-    }
-
-    public Integer getAccumulator() {
-        return accumulator;
     }
 
     public boolean listIsEmpty() {
